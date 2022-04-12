@@ -35,6 +35,7 @@ contract Vesting is Ownable, IVesting {
         uint256 totalTokens
     ) internal {
         require(user != ZERO_ADDRESS, "Address 0x0 is prohibited");
+        require(user.code.length == 0, "Contracts are prohibited");
         require(startDate > block.timestamp, "Start date in past");
         require(endDate >= startDate, "Date setup mismatch");
         require(totalTokens > startTokens, "Token number mismatch");
