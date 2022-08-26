@@ -10,15 +10,27 @@ import "./IStake.sol";
 contract Vesting is Ownable, IVesting {
     mapping(address => Vest[]) private _vestings;
 
+    /// Amount of tokens inside vesting contract
     uint256 public vested;
+    /// Address of ERC20 token contract
     address public immutable tokenAddress;
 
+    /**
+        Contract constructor
+        @param token address of ERC20 token to be vested
+     */
     constructor(address token) {
         tokenAddress = token;
         name = concat("vested ", IERC20(token).name());
         symbol = concat("v", IERC20(token).symbol());
     }
 
+    /**
+        Concat two strings
+        @param a first string
+        @param b second string
+        @return concatenated strings
+     */
     function concat(string memory a, string memory b)
         internal
         pure
@@ -27,6 +39,7 @@ contract Vesting is Ownable, IVesting {
         return string(abi.encodePacked(a, b));
     }
 
+    // Internal add vesting function
     function _addVesting(
         address user,
         uint256 startDate,
@@ -46,6 +59,14 @@ contract Vesting is Ownable, IVesting {
         vested += totalTokens;
     }
 
+    /**
+        Create single Vesting in contract
+        @param user address of the user
+        @param startDate timestamp on which user can start claiming
+        @param endDate timestamp on which all tokens are freed
+        @param startTokens amount of tokens on cliff startDate
+        @param totalTokens total amount of tokens in this vesting
+     */
     function createVest(
         address user,
         uint256 startDate,
@@ -64,6 +85,14 @@ contract Vesting is Ownable, IVesting {
         );
     }
 
+    /**
+        Create many vestings in one call
+        @param user array of user addresses
+        @param startDate array of start timestamps
+        @param endDate array of end timestamps
+        @param startTokens array of tokens on cliff
+        @param totalTokens array of total tokens vested
+     */
     function massCreateVest(
         address[] calldata user,
         uint256[] calldata startDate,
@@ -98,14 +127,30 @@ contract Vesting is Ownable, IVesting {
         );
     }
 
+    /**
+        Get all vestings for given user
+        @param user address to check
+        @return array of Vest struct
+     */
     function getVestings(address user) external view returns (Vest[] memory) {
         return _vestings[user];
     }
 
+    /**
+        Read number of vests created for given user
+        @param user address to check
+        @return number of vestings
+     */
     function getVestingCount(address user) external view returns (uint256) {
         return _vestings[user].length;
     }
 
+    /**
+        Get singe vesting parameters for given user
+        @param user address to check
+        @param index index of vesting to read
+        @return single Vest struct
+     */
     function getVesting(address user, uint256 index)
         external
         view
@@ -159,12 +204,47 @@ contract Vesting is Ownable, IVesting {
         }
     }
 
+    /**
+        Claim all possible vested tokens by caller
+     */
     function claim() external {
         uint256 sum = _claim(msg.sender, block.timestamp);
         require(
             IERC20(tokenAddress).transfer(msg.sender, sum),
             "" // will fail in token on transfer error
         );
+    }
+
+    /**
+        Claim tokens for someone (pay network fees)
+        @param user address of vested user to claim
+     */
+    function claimFor(address user) external {
+        uint256 sum = _claim(user, block.timestamp);
+        require(
+            IERC20(tokenAddress).transfer(user, sum),
+            "" // will fail in token on transfer error
+        );
+    }
+
+    /**
+        Claim one of vestings for given user.
+        Can be handy if many vestings per account.
+        @param user address to claim
+        @param index index of vesting to be claimed
+     */
+    function claimOneFor(address user, uint256 index) external {
+        require(index < _vestings[user].length, "Index out of bounds");
+        Vest storage c = _vestings[user][index];
+        uint256 amt = _claimable(c, block.timestamp);
+        require(amt > 0, "Nothing to claim");
+        c.claimed += amt;
+        vested -= amt;
+        require(
+            IERC20(tokenAddress).transfer(user, amt),
+            "" // will fail in token on transfer error
+        );
+        emit Claimed(user, amt);
     }
 
     /**
@@ -229,6 +309,11 @@ contract Vesting is Ownable, IVesting {
     //
     string internal constant ERR_NTR = "Nothing to recover";
 
+    /**
+        Recover accidentally send ETH or ERC20 tokens
+        @param token address of ERC20 token contract, 0x0 if ETH recovery
+        @param amount amount of coins/tokens to recover, 0=all
+     */
     function recover(address token, uint256 amount) external onlyOwner {
         if (token == ZERO_ADDRESS) {
             uint256 balance = address(this).balance;
