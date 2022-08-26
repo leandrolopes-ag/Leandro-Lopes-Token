@@ -52,7 +52,7 @@ describe('Vesting contract test', function () {
             // good one, but no no allowance
             await expectRevert(vesting.createVest(user1, startTime + day, startTime + week, one, two, { from: owner }), "Allowance to low")
             await token.approve(vesting.address, sto, { from: owner })
-            // missconfigured in many ways
+            // misconfigured in many ways
             await expectRevert(vesting.createVest(user1, startTime - 1, startTime + week, one, two, { from: owner }), "Start date in past")
             await expectRevert(vesting.createVest(user1, startTime + day, startTime + week, one, two, { from: user1 }), "Only for Owner")
             await expectRevert(vesting.createVest(user1, startTime + day, startTime + week, 0, 0, { from: owner }), "Token number mismatch")
@@ -119,7 +119,7 @@ describe('Vesting contract test', function () {
         it('Fails if to early', async function () {
             await expectRevert(vesting.claim({ from: user1 }), "Nothing to claim")
         })
-        it('Calims in the middle properly', async function () {
+        it('Claims in the middle properly', async function () {
             await time.increaseTo(startTime + (day * 5))
             ret = await vesting.claim({ from: user3 })
             expectEvent(ret, "Claimed", {
@@ -138,7 +138,7 @@ describe('Vesting contract test', function () {
                 amount: toWei('1.4', 'ether') //1+0.8/2
             })
         })
-        it('claims everyting at end', async function () {
+        it('claims everything at end', async function () {
             await time.increaseTo(startTime + (day * 140) + 10)
             ret = await vesting.claim({ from: user1 })
             expectEvent(ret, "Claimed", {
@@ -163,5 +163,4 @@ describe('Vesting contract test', function () {
         })
 
     })
-
 });
